@@ -43,9 +43,7 @@ func process_sysex(sysextype byte, msgdata []byte ) firmata_msg {
   switch sysextype {
   case REPORT_FIRMWARE: // queryFirmware
     result.msgtype = "REPORT_FIRMWARE"
-    fmt.Println(strconv.Itoa(int(msgdata[1])))
     result.data = make(map[string]string)
-    result.data["major"] = "foo"
     result.data["major"] = strconv.Itoa(int(msgdata[1]))
     result.data["minor"] = strconv.Itoa(int(msgdata[2]))
     result.data["name"]  = string(msgdata[3:]) //TODO I don't think this works
@@ -93,7 +91,6 @@ func read_serial( s io.ReadWriteCloser ) ( *chan firmata_msg) {
       }
     }
   }()
-  fmt.Println(results_c)
   return &results_c
 }
 
@@ -106,9 +103,8 @@ func main() {
   fmt.Println(c)
   go func() {
     for {
-      fmt.Println("here")
-      fmt.Println(c)
       msg := <- *c
+      // For now just print out the messages
       fmt.Println( msg )
     }
   }()
