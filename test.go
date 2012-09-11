@@ -49,6 +49,9 @@ func process_sysex(sysextype byte, msgdata []byte ) firmata_msg {
     result.data["name"]  = string(msgdata[3:]) //TODO I don't think this works
   default:
     result.msgtype = "UNKONWN"
+    result.data = make(map[string]string)
+    result.data["msgtyperaw"] = string(sysextype)
+    result.data["unknown"] = string(msgdata)
   }
   return result
 }
