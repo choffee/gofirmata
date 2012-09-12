@@ -1,4 +1,5 @@
 package main
+
 import (
   "github.com/tarm/goserial"
   "log"
@@ -17,6 +18,7 @@ const (
   MODE_SHIFT byte  = 0x05
   MODE_I2C byte    = 0x06
 
+  UNKNOWN byte                 = 0xFF // I just invented this it could be used elsewhere
   START_SYSEX byte             = 0xF0 // start a MIDI Sysex message
   END_SYSEX byte               = 0xF7 // end a MIDI Sysex message
   PIN_MODE_QUERY byte          = 0x72 // ask for current and supported pin modes
@@ -28,27 +30,50 @@ const (
   ANALOG_MAPPING_QUERY byte    = 0x69
   ANALOG_MAPPING_RESPONSE byte = 0x6A
   REPORT_FIRMWARE byte         = 0x79 // report name and version of the firmware
+  PIN_MODE byte                = 0xF4 // Set the pin mode
+
+  DIGITAL_WRITE byte           = 0x90
 
 )
 
-type firmata_msg struct {
-  msgtype string
-  pin int
+type FirmataMsg struct {
+  msgtype byte
+  pin byte
   data map[string]string
+  rawdata []byte
 }
 
-func process_sysex(sysextype byte, msgdata []byte ) firmata_msg {
-  var result firmata_msg
+type Board struct {
+  Name string
+  Config *serial.Config
+  serial io.ReadWriteCloser
+  Reader *chan FirmataMsg
+  Writer *chan FirmataMsg
+  digitalPins [8]byte // Keeps a record of digital pin values
+}
+
+// Setup the board to start reading and writing
+// I expect you to have already setup a serial config
+func (board *Board) Setup () error {
+  var err error
+  board.serial, err = serial.OpenPort(board.Config)
+  if(err != nil){ log.Fatal("Could not open port") }
+  board.GetReader()
+  return err
+}
+
+func process_sysex(sysextype byte, msgdata []byte ) FirmataMsg {
+  var result FirmataMsg
   fmt.Println("SYSEX: %d", sysextype, msgdata)
   switch sysextype {
   case REPORT_FIRMWARE: // queryFirmware
-    result.msgtype = "REPORT_FIRMWARE"
+    result.msgtype = REPORT_FIRMWARE
     result.data = make(map[string]string)
     result.data["major"] = strconv.Itoa(int(msgdata[1]))
     result.data["minor"] = strconv.Itoa(int(msgdata[2]))
     result.data["name"]  = string(msgdata[3:]) //TODO I don't think this works
   default:
-    result.msgtype = "UNKONWN"
+    result.msgtype = UNKNOWN
     result.data = make(map[string]string)
     result.data["msgtyperaw"] = string(sysextype)
     result.data["unknown"] = string(msgdata)
@@ -58,12 +83,12 @@ func process_sysex(sysextype byte, msgdata []byte ) firmata_msg {
 
 // Pass a pointer to a serial port and this function will send back the messages
 // received over a chanel
-func read_serial( s io.ReadWriteCloser ) ( *chan firmata_msg) {
-  results_c := make(chan firmata_msg)
+func (board *Board) GetReader()  {
+  board.Reader = new(chan FirmataMsg)
   go func() {
     for {
       l  := make([]byte,1)
-      _, err := s.Read(l)
+      _, err := board.serial.Read(l)
       if err != nil {
         log.Fatal("Failed to read from Serial port")
         return
@@ -72,7 +97,7 @@ func read_serial( s io.ReadWriteCloser ) ( *chan firmata_msg) {
         case  START_SYSEX:
           t := make([]byte,1)
           var sysextype byte
-          _, terr := s.Read(t)
+          _, terr := board.serial.Read(t)
           if terr != nil {
             log.Fatal("Failed to read sysex type")
           } else {
@@ -80,7 +105,7 @@ func read_serial( s io.ReadWriteCloser ) ( *chan firmata_msg) {
           }
           var merr error
           var msgdata []byte
-          for m := make([]byte, 1) ; m[0] != END_SYSEX ; _, merr = s.Read(m) {
+          for m := make([]byte, 1) ; m[0] != END_SYSEX ; _, merr = board.serial.Read(m) {
             if merr != nil {
               log.Fatal("Failed to read sysex from serial port")
             } else {
@@ -89,63 +114,78 @@ func read_serial( s io.ReadWriteCloser ) ( *chan firmata_msg) {
           }
           // Send the message down the chanel
           newmsg := process_sysex(sysextype, msgdata)
-          results_c <- newmsg
+          *board.Reader <- newmsg
         }
       }
     }
   }()
-  return &results_c
+}
+
+func (board *Board) sendMsg (msg FirmataMsg) {
+}
+
+func (board *Board) sendRaw (msg *[]byte) {
+  board.serial.Write(*msg)
+}
+
+// Set the mode for a pin
+// mode should be one of: MODE_INPUT MODE_OUTPUT, MODE_ANALOG,
+//                        MODE_PWM, MODE_SERVO, MODE_SHIFT, MODE_I2C
+func (board *Board) SetPinMode(pin, mode byte) {
+  msg := new(FirmataMsg)
+  msg.msgtype = PIN_MODE
+  msg.pin     = pin
+  msg.rawdata = []byte{mode}
+  board.sendMsg(*msg)
+}
+
+func (board *Board) WriteDigital(pin, value byte) {
+  port := (pin >> 3) & 0x0F // Get the port the pin is in
+  // Next we need to get all 8 pins for that port and only change the one
+  // we are intrested in
+  switch value {
+  case 0:
+    board.digitalPins[port] = board.digitalPins[port] & ^(1 << (pin & 0x07)) 
+  case 1:
+    board.digitalPins[port] = (board.digitalPins[port] | (1 << (pin & 0x07)))
+  }
+  // Now send the whole port ( 8 pins ) to the arduino
+  cmd := byte(DIGITAL_WRITE | port)
+  msg:= []byte{cmd, board.digitalPins[port]  & 0x7F, (board.digitalPins[port] >> 7)  & 0x7f }
+  board.sendRaw(&msg)
 }
 
 func main() {
-  config := &serial.Config{Name: "/dev/ttyUSB1", Baud: 57600}
-  s, err := serial.OpenPort(config)
-  if(err != nil){ log.Fatal("Could not open port") }
+  config := &serial.Config{Name: "/dev/ttyUSB0", Baud: 57600}
 
-  c := read_serial(s)
-  fmt.Println(c)
+  board := new(Board)
+  board.Config = config
+  err := board.Setup()
+  if err != nil {
+    log.Fatal("Could not setup board")
+  }
   go func() {
     for {
-      msg := <- *c
+      msg := <- *board.Reader
       // For now just print out the messages
       fmt.Println( msg )
     }
   }()
-  // *c <- *new(firmata_msg)
-
-  reportfirmware := []byte{START_SYSEX, REPORT_FIRMWARE, END_SYSEX}
-  _, err = s.Write(reportfirmware)
-  if err != nil {
-          log.Fatal("write err")
-  }
-
-  //buf := make([]byte, 1024)
-  //n, err = s.Read(buf)
-  //if err != nil {
-  //  log.Fatal(err)
-  //}
-  //log.Print("%q", buf[:n])
-
-  // pin 13
 
   // Set the mode of a pin
-  msg := []byte{0xF4, 13,MODE_OUTPUT}
-  _, err = s.Write(msg)
-  if err != nil {
-    log.Fatal("failed to set pin mode")
-  }
+  println("set 13 to output")
+  board.SetPinMode(13,MODE_OUTPUT)
 
+  // Turn on pin 13
+  println("set 13 to 1")
+  board.WriteDigital(13,1)
 
-  port_num := byte(13 / 8)
-  port_value := byte(255)
+  // Make it flash
+  var onoff byte
   for {
-    msg = []byte{0x90 | port_num ,port_value & 0x7F, (port_value >> 7) & 0x7f }
-    _, err = s.Write(msg)
-    if err != nil {
-      log.Fatal("failed to set pin mode")
-    }
+    board.WriteDigital(13,onoff)
     time.Sleep(1000 * time.Millisecond)
-    port_value = 255 - port_value
+    onoff = (^onoff) & 1
   }
 }
 
