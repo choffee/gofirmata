@@ -1,3 +1,32 @@
+/*
+  Package: Firmata
+
+  This is a binding for the arduino Firmata package.
+
+  You need to burn the simple Firmata image onto your Arduino then you 
+  can control it over the USB using this library.
+
+  import "github.com/choffee/gofirmata"
+
+  func main () {
+
+    board := new(Board)
+    board.Device = "/dev/ttyUSB1"
+    board.Baud   = 57600
+    err := board.Setup()
+    if err != nil {
+      log.Fatal("Could not setup board")
+    }
+    // Set the mode of a pin
+    println("set 13 to output")
+    board.SetPinMode(13,MODE_OUTPUT)
+
+    // Turn on pin 13
+    println("set 13 to 1")
+    board.WriteDigital(13,1)
+  }
+
+*/
 package firmata
 
 import (
