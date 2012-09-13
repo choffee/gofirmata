@@ -62,6 +62,7 @@ const (
 	ANALOG_MAPPING_RESPONSE byte = 0x6A
 	REPORT_FIRMWARE         byte = 0x79 // report name and version of the firmware
 	PIN_MODE                byte = 0xF4 // Set the pin mode
+  ANALOG_MESSAGE          byte = 0xE0
 
 	DIGITAL_WRITE byte = 0x90
 	ANALOG_WRITE  byte = 0xE0
@@ -118,6 +119,22 @@ func process_sysex(sysextype byte, msgdata []byte) FirmataMsg {
 	return result
 }
 
+func (board *Board) processMIDI( cmd, first byte ) {
+  m := make([]byte, 2)
+  var err error
+  _, err = board.serial.Read(m)
+  if err != nil {
+    log.Fatal("Failed to read the rest of the MIDI message")
+  }
+  switch cmd {
+  case ANALOG_MESSAGE:
+    pin := first & 0x0F
+    value := m[0] | m[1] << 7
+    board.analogPins[pin] = value
+  }
+
+}
+
 // Sets up the reader channel
 // You can then fetch read events from  <- board.Reader
 func (board *Board) GetReader() {
@@ -152,6 +169,23 @@ func (board *Board) GetReader() {
 					// Send the message down the chanel
 					newmsg := process_sysex(sysextype, msgdata)
 					*board.Reader <- newmsg
+        default:
+          // Assume it's a MIDI command
+          m := make([]byte, 3)
+          var merr error
+          _, merr = board.serial.Read(m)
+          if merr != nil {
+            // We fail for now
+            log.Fatal("Failed to read MIDI_MSG")
+          } else {
+            if l[0] < 240 {
+              cmd := l[0] & 0xF0
+            } else {
+              cmd := l[0]
+            }
+            board.processMIDI(cmd,l[0])
+          }
+
 				}
 			}
 		}
