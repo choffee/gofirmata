@@ -1,9 +1,8 @@
-package main
+package firmata
 
 import (
   "github.com/tarm/goserial"
   "log"
-  "time"
   "io"
   "fmt"
   "strconv"
@@ -45,7 +44,9 @@ type FirmataMsg struct {
 
 type Board struct {
   Name string
-  Config *serial.Config
+  config *serial.Config
+  Device string
+  Baud int
   serial io.ReadWriteCloser
   Reader *chan FirmataMsg
   Writer *chan FirmataMsg
@@ -55,8 +56,9 @@ type Board struct {
 // Setup the board to start reading and writing
 // I expect you to have already setup a serial config
 func (board *Board) Setup () error {
+  board.config = &serial.Config{Name: board.Device, Baud: board.Baud}
   var err error
-  board.serial, err = serial.OpenPort(board.Config)
+  board.serial, err = serial.OpenPort(board.config)
   if(err != nil){ log.Fatal("Could not open port") }
   board.GetReader()
   return err
@@ -155,37 +157,4 @@ func (board *Board) WriteDigital(pin, value byte) {
   board.sendRaw(&msg)
 }
 
-func main() {
-  config := &serial.Config{Name: "/dev/ttyUSB0", Baud: 57600}
-
-  board := new(Board)
-  board.Config = config
-  err := board.Setup()
-  if err != nil {
-    log.Fatal("Could not setup board")
-  }
-  go func() {
-    for {
-      msg := <- *board.Reader
-      // For now just print out the messages
-      fmt.Println( msg )
-    }
-  }()
-
-  // Set the mode of a pin
-  println("set 13 to output")
-  board.SetPinMode(13,MODE_OUTPUT)
-
-  // Turn on pin 13
-  println("set 13 to 1")
-  board.WriteDigital(13,1)
-
-  // Make it flash
-  var onoff byte
-  for {
-    board.WriteDigital(13,onoff)
-    time.Sleep(1000 * time.Millisecond)
-    onoff = (^onoff) & 1
-  }
-}
 
