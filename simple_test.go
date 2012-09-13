@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func TestSimple(t *testing.T) {
+func getBoard() *Board {
 
 	board := new(Board)
 	board.Device = "/dev/ttyUSB1"
@@ -16,6 +16,14 @@ func TestSimple(t *testing.T) {
 	if err != nil {
 		log.Fatal("Could not setup board")
 	}
+  return board
+
+}
+
+func TestSimple(t *testing.T) {
+
+	board := getBoard()
+
 	go func() {
 		for {
 			msg := <-*board.Reader
