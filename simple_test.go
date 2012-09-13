@@ -39,4 +39,12 @@ func TestSimple(t *testing.T) {
     time.Sleep(1000 * time.Millisecond)
     onoff = (^onoff) & 1
   }
+
+  println("set 13 to analog")
+  board.SetPinMode(13,MODE_ANALOG)
+
+  for i := 0 ; i < 1024 ; i++ {
+    board.WriteAnalog(13, byte(i & 0xFF) )
+    time.Sleep(10 * time.Millisecond)
+  }
 }

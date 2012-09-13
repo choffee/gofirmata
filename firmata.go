@@ -64,6 +64,7 @@ const (
   PIN_MODE byte                = 0xF4 // Set the pin mode
 
   DIGITAL_WRITE byte           = 0x90
+  ANALOG_WRITE byte            = 0xE0
 
 )
 
@@ -188,6 +189,13 @@ func (board *Board) WriteDigital(pin, value byte) {
   // Now send the whole port ( 8 pins ) to the arduino
   cmd := byte(DIGITAL_WRITE | port)
   msg:= []byte{cmd, board.digitalPins[port]  & 0x7F, (board.digitalPins[port] >> 7)  & 0x7f }
+  board.sendRaw(&msg)
+}
+
+// Write an analog value to a pin
+func (board *Board) WriteAnalog(pin, value byte) {
+  cmd := byte(ANALOG_WRITE | pin)
+  msg := []byte{cmd, value & 0x7F, (value >> 7) & 0x7F }
   board.sendRaw(&msg)
 }
 
