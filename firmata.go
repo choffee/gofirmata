@@ -46,6 +46,9 @@ const (
   MODE_SHIFT byte  = 0x05
   MODE_I2C byte    = 0x06
 
+  HIGH byte = 1
+  LOW  byte = 0
+
   UNKNOWN byte                 = 0xFF // I just invented this it could be used elsewhere
   START_SYSEX byte             = 0xF0 // start a MIDI Sysex message
   END_SYSEX byte               = 0xF7 // end a MIDI Sysex message
@@ -83,7 +86,7 @@ type Board struct {
 }
 
 // Setup the board to start reading and writing
-// I expect you to have already setup a serial config
+// I expect you to have already setup the Serial Device and Baud for the board
 func (board *Board) Setup () error {
   board.config = &serial.Config{Name: board.Device, Baud: board.Baud}
   var err error
@@ -112,8 +115,8 @@ func process_sysex(sysextype byte, msgdata []byte ) FirmataMsg {
   return result
 }
 
-// Pass a pointer to a serial port and this function will send back the messages
-// received over a chanel
+// Sets up the reader channel 
+// You can then fetch read events from  <- board.Reader
 func (board *Board) GetReader()  {
   board.Reader = new(chan FirmataMsg)
   go func() {
@@ -170,6 +173,8 @@ func (board *Board) SetPinMode(pin, mode byte) {
   board.sendMsg(*msg)
 }
 
+// Write a value to a pin
+// value should be firmata.HIGH or firmata.LOW
 func (board *Board) WriteDigital(pin, value byte) {
   port := (pin >> 3) & 0x0F // Get the port the pin is in
   // Next we need to get all 8 pins for that port and only change the one
