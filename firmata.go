@@ -83,6 +83,7 @@ type Board struct {
 	Reader      *chan FirmataMsg
 	Writer      *chan FirmataMsg
 	digitalPins [8]byte // Keeps a record of digital pin values
+	analogPins [16]byte // Keeps a record of analog pin values
 }
 
 // Setup the board to start reading and writing
@@ -198,4 +199,5 @@ func (board *Board) WriteAnalog(pin, value byte) {
 	cmd := byte(ANALOG_WRITE | pin)
 	msg := []byte{cmd, value & 0x7F, (value >> 7) & 0x7F}
 	board.sendRaw(&msg)
+  board.analogPins[pin] = value
 }
