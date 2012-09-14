@@ -63,6 +63,9 @@ const (
 	REPORT_FIRMWARE         byte = 0x79 // report name and version of the firmware
 	PIN_MODE                byte = 0xF4 // Set the pin mode
   ANALOG_MESSAGE          byte = 0xE0
+  I2C_REQUEST             byte = 0x76
+  I2C_REPLY               byte = 0x77
+  I2C_CONFIG              byte = 0x78
 
 	DIGITAL_WRITE byte = 0x90
 	ANALOG_WRITE  byte = 0xE0
@@ -196,6 +199,16 @@ func (board *Board) GetReader() {
 func (board *Board) sendMsg(msg FirmataMsg) {
 }
 
+// Expects the sysex message and just wraps it
+// in sysex start/end then sends it
+func (board *Board) sendSysex(msg []byte) {
+  sysex := make([]byte, len(msg) + 2 )
+  sysex[0] = START_SYSEX
+  copy(sysex[1:len(msg)], msg)
+  sysex[len(msg) + 1] = END_SYSEX
+  board.sendRaw(&sysex)
+}
+
 func (board *Board) sendRaw(msg *[]byte) {
 	board.serial.Write(*msg)
 }
@@ -236,3 +249,14 @@ func (board *Board) WriteAnalog(pin, value byte) {
 	board.sendRaw(&msg)
   board.analogPins[pin] = value
 }
+
+// Send the I2C config command
+// Should be run before sending I2C commands
+func (board *Board) I2CConfig(delay int) {
+  msg := make([]byte, 3)
+  msg[0] = I2C_CONFIG
+  msg[1] = byte(delay & 0xFF)
+  msg[2] = byte((delay >> 8) & 0xFF)
+  board.sendSysex(msg)
+}
+

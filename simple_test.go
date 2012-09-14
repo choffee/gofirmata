@@ -51,3 +51,8 @@ func TestDigitalWrite(t *testing.T) {
 	}
 }
 
+func TestI2CConfig(t *testing.T) {
+  board := getBoard()
+  println("Setting up I2C")
+  board.I2CConfig(0)
+}
