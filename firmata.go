@@ -178,10 +178,11 @@ func (board *Board) GetReader() {
             // We fail for now
             log.Fatal("Failed to read MIDI_MSG")
           } else {
+            var cmd byte
             if l[0] < 240 {
-              cmd := l[0] & 0xF0
+              cmd = l[0] & 0xF0
             } else {
-              cmd := l[0]
+              cmd = l[0]
             }
             board.processMIDI(cmd,l[0])
           }
