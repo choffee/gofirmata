@@ -15,16 +15,16 @@ func getBoard() *Board {
 	if err != nil {
 		log.Fatal("Could not setup board")
 	}
-  return board
+	return board
 
 }
 
 func TestAnalogWrite(t *testing.T) {
-  board := getBoard()
+	board := getBoard()
 	println("set 13 to analog")
 	board.SetPinMode(13, MODE_ANALOG)
 
-  println("Analog pulse on pin 13")
+	println("Analog pulse on pin 13")
 	for i := 0; i < 1024; i++ {
 		board.WriteAnalog(13, byte(i&0xFF))
 		time.Sleep(10 * time.Millisecond)
@@ -32,7 +32,7 @@ func TestAnalogWrite(t *testing.T) {
 }
 
 func TestDigitalWrite(t *testing.T) {
-  board := getBoard()
+	board := getBoard()
 	// Set the mode of a pin
 	println("set 13 to output")
 	board.SetPinMode(13, MODE_OUTPUT)
@@ -42,7 +42,7 @@ func TestDigitalWrite(t *testing.T) {
 	board.WriteDigital(13, 1)
 
 	// Make it flash
-  println("Flash pin 13")
+	println("Flash pin 13")
 	var onoff byte
 	for i := 0; i < 2; i++ {
 		board.WriteDigital(13, onoff)
@@ -52,7 +52,15 @@ func TestDigitalWrite(t *testing.T) {
 }
 
 func TestI2CConfig(t *testing.T) {
-  board := getBoard()
-  println("Setting up I2C")
-  board.I2CConfig(0)
+	board := getBoard()
+	println("Setting up I2C")
+	board.I2CConfig(0)
+}
+
+func TestI2CSend(t *testing.T) {
+	board := getBoard()
+	println("Sending I2C clear screen")
+	LCDaddr := byte(0xC6 >> 1) // For the LCD02 screen that I have
+	msg := []byte{12}          // Clear the screen
+	board.I2CWrite(LCDaddr, msg)
 }

@@ -46,6 +46,11 @@ const (
 	MODE_SHIFT  byte = 0x05
 	MODE_I2C    byte = 0x06
 
+	I2C_MODE_WRITE           byte = 0x00
+	I2C_MODE_READ            byte = 0x01
+	I2C_MODE_CONTINIOUS_READ byte = 0x02
+	I2C_MODE_STOP_READING    byte = 0x03
+
 	HIGH byte = 1
 	LOW  byte = 0
 
@@ -62,10 +67,10 @@ const (
 	ANALOG_MAPPING_RESPONSE byte = 0x6A
 	REPORT_FIRMWARE         byte = 0x79 // report name and version of the firmware
 	PIN_MODE                byte = 0xF4 // Set the pin mode
-  ANALOG_MESSAGE          byte = 0xE0
-  I2C_REQUEST             byte = 0x76
-  I2C_REPLY               byte = 0x77
-  I2C_CONFIG              byte = 0x78
+	ANALOG_MESSAGE          byte = 0xE0
+	I2C_REQUEST             byte = 0x76
+	I2C_REPLY               byte = 0x77
+	I2C_CONFIG              byte = 0x78
 
 	DIGITAL_WRITE byte = 0x90
 	ANALOG_WRITE  byte = 0xE0
@@ -86,8 +91,8 @@ type Board struct {
 	serial      io.ReadWriteCloser
 	Reader      *chan FirmataMsg
 	Writer      *chan FirmataMsg
-	digitalPins [8]byte // Keeps a record of digital pin values
-	analogPins [16]byte // Keeps a record of analog pin values
+	digitalPins [8]byte  // Keeps a record of digital pin values
+	analogPins  [16]byte // Keeps a record of analog pin values
 }
 
 // Setup the board to start reading and writing
@@ -122,19 +127,19 @@ func process_sysex(sysextype byte, msgdata []byte) FirmataMsg {
 	return result
 }
 
-func (board *Board) processMIDI( cmd, first byte ) {
-  m := make([]byte, 2)
-  var err error
-  _, err = board.serial.Read(m)
-  if err != nil {
-    log.Fatal("Failed to read the rest of the MIDI message")
-  }
-  switch cmd {
-  case ANALOG_MESSAGE:
-    pin := first & 0x0F
-    value := m[0] | m[1] << 7
-    board.analogPins[pin] = value
-  }
+func (board *Board) processMIDI(cmd, first byte) {
+	m := make([]byte, 2)
+	var err error
+	_, err = board.serial.Read(m)
+	if err != nil {
+		log.Fatal("Failed to read the rest of the MIDI message")
+	}
+	switch cmd {
+	case ANALOG_MESSAGE:
+		pin := first & 0x0F
+		value := m[0] | m[1]<<7
+		board.analogPins[pin] = value
+	}
 
 }
 
@@ -172,23 +177,23 @@ func (board *Board) GetReader() {
 					// Send the message down the chanel
 					newmsg := process_sysex(sysextype, msgdata)
 					*board.Reader <- newmsg
-        default:
-          // Assume it's a MIDI command
-          m := make([]byte, 3)
-          var merr error
-          _, merr = board.serial.Read(m)
-          if merr != nil {
-            // We fail for now
-            log.Fatal("Failed to read MIDI_MSG")
-          } else {
-            var cmd byte
-            if l[0] < 240 {
-              cmd = l[0] & 0xF0
-            } else {
-              cmd = l[0]
-            }
-            board.processMIDI(cmd,l[0])
-          }
+				default:
+					// Assume it's a MIDI command
+					m := make([]byte, 3)
+					var merr error
+					_, merr = board.serial.Read(m)
+					if merr != nil {
+						// We fail for now
+						log.Fatal("Failed to read MIDI_MSG")
+					} else {
+						var cmd byte
+						if l[0] < 240 {
+							cmd = l[0] & 0xF0
+						} else {
+							cmd = l[0]
+						}
+						board.processMIDI(cmd, l[0])
+					}
 
 				}
 			}
@@ -202,11 +207,11 @@ func (board *Board) sendMsg(msg FirmataMsg) {
 // Expects the sysex message and just wraps it
 // in sysex start/end then sends it
 func (board *Board) sendSysex(msg []byte) {
-  sysex := make([]byte, len(msg) + 2 )
-  sysex[0] = START_SYSEX
-  copy(sysex[1:len(msg)], msg)
-  sysex[len(msg) + 1] = END_SYSEX
-  board.sendRaw(&sysex)
+	sysex := make([]byte, len(msg)+2)
+	sysex[0] = START_SYSEX
+	copy(sysex[1:len(msg)], msg)
+	sysex[len(msg)+1] = END_SYSEX
+	board.sendRaw(&sysex)
 }
 
 func (board *Board) sendRaw(msg *[]byte) {
@@ -247,16 +252,33 @@ func (board *Board) WriteAnalog(pin, value byte) {
 	cmd := byte(ANALOG_WRITE | pin)
 	msg := []byte{cmd, value & 0x7F, (value >> 7) & 0x7F}
 	board.sendRaw(&msg)
-  board.analogPins[pin] = value
+	board.analogPins[pin] = value
 }
 
 // Send the I2C config command
 // Should be run before sending I2C commands
 func (board *Board) I2CConfig(delay int) {
-  msg := make([]byte, 3)
-  msg[0] = I2C_CONFIG
-  msg[1] = byte(delay & 0xFF)
-  msg[2] = byte((delay >> 8) & 0xFF)
-  board.sendSysex(msg)
+	msg := make([]byte, 3)
+	msg[0] = I2C_CONFIG
+	msg[1] = byte(delay & 0xFF)
+	msg[2] = byte((delay >> 8) & 0xFF)
+	board.sendSysex(msg)
 }
 
+// Send an I2C message
+// addr is the address on the I2C bus to send it too
+// msg is a slice containg the message to send
+// We are only supporting 7bit addresses
+func (board *Board) I2CWrite(addr byte, msg []byte) {
+	newLength := len(msg)*2 + 3
+	fullmsg := make([]byte, newLength)
+	fullmsg[0] = I2C_REQUEST
+  fullmsg[1] = addr & 0x7F
+	fullmsg[2] = I2C_MODE_WRITE
+	for l := 0; l < len(msg); l++ {
+		fullmsg[3+l*2] = msg[l] & 0x7F
+		fullmsg[4+l*2] = msg[l] >> 7 & 0x7F
+	}
+  board.sendSysex(fullmsg)
+
+}
