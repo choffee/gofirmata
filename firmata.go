@@ -148,54 +148,54 @@ func (board *Board) processMIDI(cmd, first byte) {
 func (board *Board) GetReader() {
 	board.Reader = new(chan FirmataMsg)
 	go func() {
-		for {
-			l := make([]byte, 1)
-			_, err := board.serial.Read(l)
+    var err error
+    l := make([]byte, 1)
+		for _, err = board.serial.Read(l) ;;  _, err = board.serial.Read(l) {
 			if err != nil {
 				log.Fatal("Failed to read from Serial port")
 				return
-			} else {
-				switch l[0] {
-				case START_SYSEX:
-					t := make([]byte, 1)
-					var sysextype byte
-					_, terr := board.serial.Read(t)
-					if terr != nil {
-						log.Fatal("Failed to read sysex type")
-					} else {
-						sysextype = t[0]
-					}
-					var merr error
-					var msgdata []byte
-					for m := make([]byte, 1); m[0] != END_SYSEX; _, merr = board.serial.Read(m) {
-						if merr != nil {
-							log.Fatal("Failed to read sysex from serial port")
-						} else {
-							msgdata = append(msgdata, m[0])
-						}
-					}
-					// Send the message down the chanel
-					newmsg := process_sysex(sysextype, msgdata)
-					*board.Reader <- newmsg
-				default:
-					// Assume it's a MIDI command
-					m := make([]byte, 3)
-					var merr error
-					_, merr = board.serial.Read(m)
-					if merr != nil {
-						// We fail for now
-						log.Fatal("Failed to read MIDI_MSG")
-					} else {
-						var cmd byte
-						if l[0] < 240 {
-							cmd = l[0] & 0xF0
-						} else {
-							cmd = l[0]
-						}
-						board.processMIDI(cmd, l[0])
-					}
+			}
+      switch l[0] {
+      case START_SYSEX:
+        t := make([]byte, 1)
+        var sysextype byte
+        _, terr := board.serial.Read(t)
+        if terr != nil {
+          log.Fatal("Failed to read sysex type")
+        } else {
+          sysextype = t[0]
+        }
+        var merr error
+        var msgdata []byte
+        for m := make([]byte, 1); m[0] != END_SYSEX; _, merr = board.serial.Read(m) {
+          if merr != nil {
+            log.Fatal("Failed to read sysex from serial port")
+          } else {
+            msgdata = append(msgdata, m[0])
+          }
+        }
+        // Send the message down the chanel
+        newmsg := process_sysex(sysextype, msgdata)
+        *board.Reader <- newmsg
+      default:
+        // Assume it's a MIDI command
+        m := make([]byte, 3)
+        var merr error
+        _, merr = board.serial.Read(m)
+        if merr != nil {
+          // We fail for now
+          log.Fatal("Failed to read MIDI_MSG")
+        } else {
+          var cmd byte
+          if l[0] < 240 {
+            cmd = l[0] & 0xF0
+          } else {
+            cmd = l[0]
+          }
+          board.processMIDI(cmd, l[0])
+        }
 
-				}
+      }
 			}
 		}
 	}()
