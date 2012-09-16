@@ -108,20 +108,20 @@ func (board *Board) Setup() error {
 	return err
 }
 
-func process_sysex(sysextype byte, msgdata []byte) FirmataMsg {
+func process_sysex(msgdata []byte) FirmataMsg {
 	var result FirmataMsg
 	fmt.Println("SYSEX: %d", sysextype, msgdata)
-	switch sysextype {
+	switch msgdata[0] {
 	case REPORT_FIRMWARE: // queryFirmware
 		result.msgtype = REPORT_FIRMWARE
 		result.data = make(map[string]string)
 		result.data["major"] = strconv.Itoa(int(msgdata[1]))
 		result.data["minor"] = strconv.Itoa(int(msgdata[2]))
-		result.data["name"] = string(msgdata[3:]) //TODO I don't think this works
+		result.data["name"] = string(msgdata[3:]) //TODO This needs to converted from 7bit
 	default:
 		result.msgtype = UNKNOWN
 		result.data = make(map[string]string)
-		result.data["msgtyperaw"] = string(sysextype)
+		result.data["msgtyperaw"] = string(msgdata[0])
 		result.data["unknown"] = string(msgdata)
 	}
 	return result
@@ -148,54 +148,43 @@ func (board *Board) processMIDI(cmd, first byte) {
 func (board *Board) GetReader() {
 	board.Reader = new(chan FirmataMsg)
 	go func() {
-    var err error
-    l := make([]byte, 1)
-		for _, err = board.serial.Read(l) ;;  _, err = board.serial.Read(l) {
+		var err error
+		l := make([]byte, 1)
+		for _, err = board.serial.Read(l); ; _, err = board.serial.Read(l) {
 			if err != nil {
 				log.Fatal("Failed to read from Serial port")
 				return
 			}
-      switch l[0] {
-      case START_SYSEX:
-        t := make([]byte, 1)
-        var sysextype byte
-        _, terr := board.serial.Read(t)
-        if terr != nil {
-          log.Fatal("Failed to read sysex type")
-        } else {
-          sysextype = t[0]
-        }
-        var merr error
-        var msgdata []byte
-        for m := make([]byte, 1); m[0] != END_SYSEX; _, merr = board.serial.Read(m) {
-          if merr != nil {
-            log.Fatal("Failed to read sysex from serial port")
-          } else {
-            msgdata = append(msgdata, m[0])
-          }
-        }
-        // Send the message down the chanel
-        newmsg := process_sysex(sysextype, msgdata)
-        *board.Reader <- newmsg
-      default:
-        // Assume it's a MIDI command
-        m := make([]byte, 3)
-        var merr error
-        _, merr = board.serial.Read(m)
-        if merr != nil {
-          // We fail for now
-          log.Fatal("Failed to read MIDI_MSG")
-        } else {
-          var cmd byte
-          if l[0] < 240 {
-            cmd = l[0] & 0xF0
-          } else {
-            cmd = l[0]
-          }
-          board.processMIDI(cmd, l[0])
-        }
-
-      }
+			switch l[0] {
+			case START_SYSEX:
+				var msgdata []byte
+				for m := make([]byte, 1); m[0] != END_SYSEX; _, err = board.serial.Read(m) {
+					if err != nil {
+						log.Fatal("Failed to read sysex from serial port")
+					} else {
+						msgdata = append(msgdata, m[0])
+					}
+				}
+				// Send the message down the chanel
+				newmsg := process_sysex(msgdata)
+				*board.Reader <- newmsg
+			default:
+				// Assume it's a MIDI command
+				m := make([]byte, 3)
+				var merr error
+				_, merr = board.serial.Read(m)
+				if merr != nil {
+					// We fail for now
+					log.Fatal("Failed to read MIDI_MSG")
+				} else {
+					var cmd byte
+					if l[0] < 240 {
+						cmd = l[0] & 0xF0
+					} else {
+						cmd = l[0]
+					}
+					board.processMIDI(cmd, l[0])
+				}
 			}
 		}
 	}()
@@ -273,12 +262,12 @@ func (board *Board) I2CWrite(addr byte, msg []byte) {
 	newLength := len(msg)*2 + 3
 	fullmsg := make([]byte, newLength)
 	fullmsg[0] = I2C_REQUEST
-  fullmsg[1] = addr & 0x7F
+	fullmsg[1] = addr & 0x7F
 	fullmsg[2] = I2C_MODE_WRITE
 	for l := 0; l < len(msg); l++ {
 		fullmsg[3+l*2] = msg[l] & 0x7F
 		fullmsg[4+l*2] = msg[l] >> 7 & 0x7F
 	}
-  board.sendSysex(fullmsg)
+	board.sendSysex(fullmsg)
 
 }
