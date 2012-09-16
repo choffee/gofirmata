@@ -83,16 +83,26 @@ type FirmataMsg struct {
 	rawdata []byte
 }
 
+type pinmode struct {
+	mode       byte
+	resolution byte
+}
+
+type pinCapability struct {
+	modes []pinmode
+}
+
 type Board struct {
-	Name        string
-	config      *serial.Config
-	Device      string
-	Baud        int
-	serial      io.ReadWriteCloser
-	Reader      *chan FirmataMsg
-	Writer      *chan FirmataMsg
-	digitalPins [8]byte  // Keeps a record of digital pin values
-	analogPins  [16]byte // Keeps a record of analog pin values
+	Name            string
+	config          *serial.Config
+	Device          string
+	Baud            int
+	serial          io.ReadWriteCloser
+	Reader          *chan FirmataMsg
+	Writer          *chan FirmataMsg
+	digitalPins     [8]byte  // Keeps a record of digital pin values
+	analogPins      [16]byte // Keeps a record of analog pin values
+	pinCapabilities []pinCapability
 }
 
 // Setup the board to start reading and writing
@@ -108,7 +118,7 @@ func (board *Board) Setup() error {
 	return err
 }
 
-func process_sysex(msgdata []byte) FirmataMsg {
+func (board *Board) process_sysex(msgdata []byte) FirmataMsg {
 	var result FirmataMsg
 	fmt.Println(msgdata)
 	switch msgdata[0] {
@@ -118,6 +128,20 @@ func process_sysex(msgdata []byte) FirmataMsg {
 		result.data["major"] = strconv.Itoa(int(msgdata[1]))
 		result.data["minor"] = strconv.Itoa(int(msgdata[2]))
 		result.data["name"] = string(msgdata[3:]) //TODO This needs to converted from 7bit
+	case CAPABILITY_RESPONSE:
+		var mode pinmode
+		var capa []pinmode
+		pin := 0
+		for i := 1; i < len(msgdata); i = i + 2 {
+			if msgdata[i] == 127 {
+				board.pinCapabilities[pin].modes = capa
+				pin++
+				capa = nil
+			}
+			mode.mode = msgdata[i]
+			mode.resolution = msgdata[i+1]
+			capa = append(capa, mode)
+		}
 	default:
 		result.msgtype = UNKNOWN
 		result.data = make(map[string]string)
@@ -166,7 +190,7 @@ func (board *Board) GetReader() {
 					}
 				}
 				// Send the message down the chanel
-				newmsg := process_sysex(msgdata)
+				newmsg := board.process_sysex(msgdata)
 				*board.Reader <- newmsg
 			default:
 				// Assume it's a MIDI command
