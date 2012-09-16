@@ -121,6 +121,7 @@ func (board *Board) Setup() error {
 
 func (board *Board) process_sysex(msgdata []byte) FirmataMsg {
 	var result FirmataMsg
+	result.rawdata = msgdata
 	fmt.Println(msgdata)
 	switch msgdata[0] {
 	case REPORT_FIRMWARE: // queryFirmware
@@ -148,6 +149,14 @@ func (board *Board) process_sysex(msgdata []byte) FirmataMsg {
 		for pin, level := range msgdata[1:] {
 			board.analogMappings[pin] = level
 		}
+	case PIN_STATE_RESPONSE:
+		result.pin = msgdata[1]
+		result.data["mode"] = string(msgdata[2])
+		state := 0
+		for mult, st := range msgdata[3:] {
+			state = state + int(st<<(7*uint(mult)))
+		}
+		result.data["state"] = string(state)
 	default:
 		result.msgtype = UNKNOWN
 		result.data = make(map[string]string)
