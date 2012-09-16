@@ -103,6 +103,7 @@ type Board struct {
 	digitalPins     [8]byte  // Keeps a record of digital pin values
 	analogPins      [16]byte // Keeps a record of analog pin values
 	pinCapabilities []pinCapability
+	analogMappings  []byte // one for each pin showing mapped analog pin
 }
 
 // Setup the board to start reading and writing
@@ -141,6 +142,11 @@ func (board *Board) process_sysex(msgdata []byte) FirmataMsg {
 			mode.mode = msgdata[i]
 			mode.resolution = msgdata[i+1]
 			capa = append(capa, mode)
+		}
+	case ANALOG_MAPPING_RESPONSE:
+		// discard the sysex type then map each pin
+		for pin, level := range msgdata[1:] {
+			board.analogMappings[pin] = level
 		}
 	default:
 		result.msgtype = UNKNOWN
