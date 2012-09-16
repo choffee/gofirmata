@@ -122,7 +122,7 @@ func (board *Board) Setup() error {
 func (board *Board) process_sysex(msgdata []byte) FirmataMsg {
 	var result FirmataMsg
 	result.rawdata = msgdata
-  result.msgtype = msgdata[0]
+	result.msgtype = msgdata[0]
 	fmt.Println(msgdata)
 	switch msgdata[0] {
 	case REPORT_FIRMWARE: // queryFirmware
@@ -157,6 +157,14 @@ func (board *Board) process_sysex(msgdata []byte) FirmataMsg {
 			state = state + int(st<<(7*uint(mult)))
 		}
 		result.data["state"] = string(state)
+	case I2C_REPLY:
+		result.data["address"] = string(toInt7(msgdata[1], msgdata[2]))
+		result.data["register"] = string(toInt7(msgdata[3], msgdata[4]))
+		data := ""
+		for f := 5; f < len(msgdata); f = f + 2 {
+			data = data + string(toInt7(msgdata[f], msgdata[f+1]))
+		}
+		result.data["i2cdata"] = data
 	default:
 		result.msgtype = UNKNOWN
 		result.data = make(map[string]string)
@@ -164,6 +172,10 @@ func (board *Board) process_sysex(msgdata []byte) FirmataMsg {
 		result.data["unknown"] = string(msgdata)
 	}
 	return result
+}
+
+func toInt7(lsb, msb byte) int {
+	return int(lsb + (msb << 7))
 }
 
 func (board *Board) processMIDI(cmd, first byte) {
