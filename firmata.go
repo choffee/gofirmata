@@ -110,7 +110,7 @@ func (board *Board) Setup() error {
 
 func process_sysex(msgdata []byte) FirmataMsg {
 	var result FirmataMsg
-	fmt.Println("SYSEX: %d", sysextype, msgdata)
+	fmt.Println(msgdata)
 	switch msgdata[0] {
 	case REPORT_FIRMWARE: // queryFirmware
 		result.msgtype = REPORT_FIRMWARE
