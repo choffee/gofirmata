@@ -122,10 +122,10 @@ func (board *Board) Setup() error {
 func (board *Board) process_sysex(msgdata []byte) FirmataMsg {
 	var result FirmataMsg
 	result.rawdata = msgdata
+  result.msgtype = msgdata[0]
 	fmt.Println(msgdata)
 	switch msgdata[0] {
 	case REPORT_FIRMWARE: // queryFirmware
-		result.msgtype = REPORT_FIRMWARE
 		result.data = make(map[string]string)
 		result.data["major"] = strconv.Itoa(int(msgdata[1]))
 		result.data["minor"] = strconv.Itoa(int(msgdata[2]))
