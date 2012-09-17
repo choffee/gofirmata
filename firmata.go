@@ -260,6 +260,15 @@ func (board *Board) sendRaw(msg *[]byte) {
 	board.serial.Write(*msg)
 }
 
+func (board *Board) GetAnalogMapping() {
+  msg := []byte{ANALOG_MAPPING_QUERY}
+  board.sendSysex(msg)
+}
+
+func (board *Board) GetCapabilities() {
+
+}
+
 // Set the mode for a pin
 // mode should be one of: MODE_INPUT MODE_OUTPUT, MODE_ANALOG,
 //                        MODE_PWM, MODE_SERVO, MODE_SHIFT, MODE_I2C

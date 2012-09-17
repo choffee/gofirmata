@@ -1,6 +1,7 @@
 package firmata
 
 import (
+	"fmt"
 	"log"
 	"testing"
 	"time"
@@ -15,8 +16,18 @@ func getBoard() *Board {
 	if err != nil {
 		log.Fatal("Could not setup board")
 	}
+  go func() {
+    for msg := range *board.Reader {
+      fmt.Println(msg)
+    }
+  }()
 	return board
+}
 
+func TestAnalogMapping(t *testing.T) {
+  board := getBoard()
+  println("Sending analog mapping request")
+  board.GetAnalogMapping()
 }
 
 func TestAnalogWrite(t *testing.T) {
