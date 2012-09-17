@@ -62,5 +62,5 @@ func TestI2CSend(t *testing.T) {
 	println("Sending I2C clear screen")
 	LCDaddr := byte(0xC6 >> 1) // For the LCD02 screen that I have
 	msg := []byte{12}          // Clear the screen
-	board.I2CWrite(LCDaddr, msg)
+	board.I2CWrite(LCDaddr, I2C_MODE_WRITE, msg)
 }
