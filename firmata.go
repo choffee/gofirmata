@@ -300,21 +300,24 @@ func (board *Board) WriteAnalog(pin, value byte) {
 func (board *Board) I2CConfig(delay int) {
 	msg := make([]byte, 3)
 	msg[0] = I2C_CONFIG
-	msg[1] = byte(delay & 0xFF)
-	msg[2] = byte((delay >> 8) & 0xFF)
+  msg[1] = byte(1) // Power pins on
+	msg[1] = byte(delay & 0x7F)
+	msg[2] = byte((delay >> 7) & 0x7F)
 	board.sendSysex(msg)
 }
 
 // Send an I2C message
 // addr is the address on the I2C bus to send it too
 // msg is a slice containg the message to send
+// mode: Should be one of I2C_MODE_WRITE, I2C_MODE_READ, 
+//       I2C_MODE_CONTINIOUS_READ or I2C_MODE_STOP_READING
 // We are only supporting 7bit addresses
-func (board *Board) I2CWrite(addr byte, msg []byte) {
+func (board *Board) I2CWrite(addr, mode byte, msg []byte ) {
 	newLength := len(msg)*2 + 3
 	fullmsg := make([]byte, newLength)
 	fullmsg[0] = I2C_REQUEST
 	fullmsg[1] = addr & 0x7F
-	fullmsg[2] = I2C_MODE_WRITE
+	fullmsg[2] = mode << 3
 	for l := 0; l < len(msg); l++ {
 		fullmsg[3+l*2] = msg[l] & 0x7F
 		fullmsg[4+l*2] = msg[l] >> 7 & 0x7F
