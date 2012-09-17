@@ -73,7 +73,9 @@ const (
 	I2C_CONFIG              byte = 0x78
 
 	DIGITAL_WRITE byte = 0x90
+	DIGITAL_READ  byte = 0xD0
 	ANALOG_WRITE  byte = 0xE0
+	ANALOG_READ   byte = 0xC0
 )
 
 type FirmataMsg struct {
@@ -269,10 +271,15 @@ func (board *Board) SetPinMode(pin, mode byte) {
 	board.sendMsg(*msg)
 }
 
+// Convert a digital pin to port
+func pin2port(pin byte) byte {
+	return (pin >> 3) & 0x0F // Get the port the pin is in
+}
+
 // Write a value to a pin
 // value should be firmata.HIGH or firmata.LOW
 func (board *Board) WriteDigital(pin, value byte) {
-	port := (pin >> 3) & 0x0F // Get the port the pin is in
+	port := pin2port(pin)
 	// Next we need to get all 8 pins for that port and only change the one
 	// we are intrested in
 	switch value {
@@ -295,12 +302,30 @@ func (board *Board) WriteAnalog(pin, value byte) {
 	board.analogPins[pin] = value
 }
 
+// Starts and stops the analog pin reporting
+// state: 0/1 disable/enable
+func (board *Board) SetReadAnalog(pin, state byte) {
+	cmd := byte(ANALOG_READ | (pin & 0xF))
+	msg := []byte{cmd, state & 0x1}
+	board.sendRaw(&msg)
+}
+
+// Starts and stops the digital pin reading for a port
+// state: 0/1 disable/enable
+// ( It start reading for the whole port )
+func (board *Board) SetReadDigital(pin, state byte) {
+	port := pin2port(pin)
+	cmd := byte(DIGITAL_READ | port)
+	msg := []byte{cmd, state & 0x1}
+	board.sendRaw(&msg)
+}
+
 // Send the I2C config command
 // Should be run before sending I2C commands
 func (board *Board) I2CConfig(delay int) {
 	msg := make([]byte, 3)
 	msg[0] = I2C_CONFIG
-  msg[1] = byte(1) // Power pins on
+	msg[1] = byte(1) // Power pins on
 	msg[1] = byte(delay & 0x7F)
 	msg[2] = byte((delay >> 7) & 0x7F)
 	board.sendSysex(msg)
@@ -312,7 +337,7 @@ func (board *Board) I2CConfig(delay int) {
 // mode: Should be one of I2C_MODE_WRITE, I2C_MODE_READ, 
 //       I2C_MODE_CONTINIOUS_READ or I2C_MODE_STOP_READING
 // We are only supporting 7bit addresses
-func (board *Board) I2CWrite(addr, mode byte, msg []byte ) {
+func (board *Board) I2CWrite(addr, mode byte, msg []byte) {
 	newLength := len(msg)*2 + 3
 	fullmsg := make([]byte, newLength)
 	fullmsg[0] = I2C_REQUEST
@@ -323,5 +348,4 @@ func (board *Board) I2CWrite(addr, mode byte, msg []byte ) {
 		fullmsg[4+l*2] = msg[l] >> 7 & 0x7F
 	}
 	board.sendSysex(fullmsg)
-
 }
