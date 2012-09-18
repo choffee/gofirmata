@@ -116,8 +116,11 @@ func (board *Board) Setup() error {
 	board.serial, err = serial.OpenPort(board.config)
 	if err != nil {
 		log.Fatal("Could not open port")
+		return err
 	}
 	board.GetReader()
+	board.GetCapabilities()
+	board.GetAnalogMapping()
 	return err
 }
 
@@ -261,12 +264,13 @@ func (board *Board) sendRaw(msg *[]byte) {
 }
 
 func (board *Board) GetAnalogMapping() {
-  msg := []byte{ANALOG_MAPPING_QUERY}
-  board.sendSysex(msg)
+	msg := []byte{ANALOG_MAPPING_QUERY}
+	board.sendSysex(msg)
 }
 
 func (board *Board) GetCapabilities() {
-
+	msg := []byte{CAPABILITY_QUERY}
+	board.sendSysex(msg)
 }
 
 // Set the mode for a pin
