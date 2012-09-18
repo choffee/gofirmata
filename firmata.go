@@ -35,6 +35,7 @@ import (
 	"io"
 	"log"
 	"strconv"
+	"time"
 )
 
 const (
@@ -204,11 +205,13 @@ func (board *Board) processMIDI(cmd, first byte) {
 // You can then fetch read events from  <- board.Reader
 func (board *Board) GetReader() {
 	board.Reader = new(chan FirmataMsg)
+	time.Sleep(1000 * time.Millisecond)
 	go func() {
 		var err error
 		l := make([]byte, 1)
 		for _, err = board.serial.Read(l); ; _, err = board.serial.Read(l) {
 			if err != nil {
+				fmt.Println(err)
 				log.Fatal("Failed to read from Serial port")
 				return
 			}
