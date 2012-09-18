@@ -98,6 +98,7 @@ type Board struct {
 	Name            string
 	config          *serial.Config
 	Device          string
+	Debug           int // 0 no debug
 	Baud            int
 	serial          io.ReadWriteCloser
 	Reader          *chan FirmataMsg
@@ -257,6 +258,9 @@ func (board *Board) sendSysex(msg []byte) {
 	copy(sysex[1:len(msg)], msg)
 	sysex[len(msg)+1] = END_SYSEX
 	board.sendRaw(&sysex)
+	if board.Debug > 0 {
+		fmt.Println(&sysex)
+	}
 }
 
 func (board *Board) sendRaw(msg *[]byte) {
