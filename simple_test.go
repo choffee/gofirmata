@@ -16,18 +16,19 @@ func getBoard() *Board {
 	if err != nil {
 		log.Fatal("Could not setup board")
 	}
-  go func() {
-    for msg := range *board.Reader {
-      fmt.Println(msg)
-    }
-  }()
+	go func() {
+		for msg := range *board.Reader {
+			fmt.Println(msg)
+		}
+	}()
 	return board
 }
 
 func TestAnalogMapping(t *testing.T) {
-  board := getBoard()
-  println("Sending analog mapping request")
-  board.GetAnalogMapping()
+	board := getBoard()
+	println("Sending analog mapping request")
+	board.GetAnalogMapping()
+	time.Sleep(1000 * time.Millisecond)
 }
 
 func TestAnalogWrite(t *testing.T) {
@@ -70,6 +71,7 @@ func TestI2CConfig(t *testing.T) {
 
 func TestI2CSend(t *testing.T) {
 	board := getBoard()
+	board.Debug = 1
 	println("Sending I2C clear screen")
 	LCDaddr := byte(0xC6 >> 1) // For the LCD02 screen that I have
 	msg := []byte{12}          // Clear the screen
