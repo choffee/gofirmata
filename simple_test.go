@@ -9,10 +9,7 @@ import (
 
 func getBoard() *Board {
 
-	board := new(Board)
-	board.Device = "/dev/ttyUSB1"
-	board.Baud = 57600
-	err := board.Setup()
+	board, err := NewBoard("/dev/ttyUSB1", 57600)
 	if err != nil {
 		log.Fatal("Could not setup board")
 	}

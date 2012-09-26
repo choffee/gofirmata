@@ -10,10 +10,7 @@
 
   func main () {
 
-    board := new(Board)
-    board.Device = "/dev/ttyUSB1"
-    board.Baud   = 57600
-    err := board.Setup()
+    board, err := NewBoard("/dev/ttyUSB1", 57600)
     if err != nil {
       log.Fatal("Could not setup board")
     }
@@ -98,9 +95,9 @@ type pinCapability struct {
 type Board struct {
 	Name            string
 	config          *serial.Config
-	Device          string
+	device          string
 	Debug           int // 0 no debug
-	Baud            int
+	baud            int
 	serial          io.ReadWriteCloser
 	Reader          *chan FirmataMsg
 	Writer          *chan FirmataMsg
@@ -111,19 +108,33 @@ type Board struct {
 }
 
 // Setup the board to start reading and writing
-// I expect you to have already setup the Serial Device and Baud for the board
-func (board *Board) Setup() error {
-	board.config = &serial.Config{Name: board.Device, Baud: board.Baud}
+// It needs a device in the format "/dev/ttyUSB0"
+// and a baud rate eg. 57600
+func NewBoard(device string, baud int) (*Board, error) {
+	board := new(Board)
+	board.device = device
+	board.baud = baud
+	board.config = &serial.Config{Name: board.device, Baud: board.baud}
 	var err error
 	board.serial, err = serial.OpenPort(board.config)
 	if err != nil {
 		log.Fatal("Could not open port")
-		return err
+		return board, err
 	}
 	board.GetReader()
 	board.GetCapabilities()
 	board.GetAnalogMapping()
-	return err
+	return board, err
+}
+
+// Return the Device  the board is using
+func (board *Board) Device() string {
+	return board.device
+}
+
+// Return the baud rate the device is using
+func (board *Board) Baud() int {
+	return board.baud
 }
 
 func (board *Board) process_sysex(msgdata []byte) FirmataMsg {
