@@ -263,9 +263,6 @@ func (board *Board) GetReader() {
 	}()
 }
 
-func (board *Board) sendMsg(msg FirmataMsg) {
-}
-
 // Expects the sysex message and just wraps it
 // in sysex start/end then sends it
 func (board *Board) sendSysex(msg []byte) {
