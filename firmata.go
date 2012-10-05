@@ -297,11 +297,10 @@ func (board *Board) GetCapabilities() {
 // mode should be one of: MODE_INPUT MODE_OUTPUT, MODE_ANALOG,
 //                        MODE_PWM, MODE_SERVO, MODE_SHIFT, MODE_I2C
 func (board *Board) SetPinMode(pin, mode byte) {
-	msg := new(FirmataMsg)
-	msg.msgtype = PIN_MODE
-	msg.pin = pin
-	msg.rawdata = []byte{mode}
-	board.sendMsg(*msg)
+	cmd := byte(PIN_MODE)
+	msg := []byte{cmd, pin & 0x7F, mode & 0x7F}
+	board.sendRaw(&msg)
+
 }
 
 // Convert a digital pin to port
