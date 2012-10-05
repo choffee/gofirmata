@@ -2,6 +2,7 @@
 package firmata
 
 import (
+	"encoding/hex"
 	"fmt"
 )
 
@@ -40,8 +41,11 @@ func NewRGBLED(rp, gp, bp uint8) *RGBLED {
 
 func (l *RGBLED) SetupPins(b *Board) {
 	b.SetPinMode(l.rpin, MODE_PWM)
+	b.SetPinMode(l.rpin, MODE_OUTPUT)
 	b.SetPinMode(l.gpin, MODE_PWM)
+	b.SetPinMode(l.gpin, MODE_OUTPUT)
 	b.SetPinMode(l.bpin, MODE_PWM)
+	b.SetPinMode(l.bpin, MODE_OUTPUT)
 }
 
 // Set the LED pins
@@ -61,13 +65,33 @@ func (l *RGBLED) HexString() string {
 	return fmt.Sprintf("%02X%02X%02X", l.rpin, l.gpin, l.bpin)
 }
 
+func FromHex(s string) ([3]byte, error) {
+	var color [3]byte
+	var b []byte
+	var err error
+	for l := 0; l <= 2; l++ {
+		b, err = hex.DecodeString(s[0+l*2 : 2+l*2])
+		if err != nil {
+			fmt.Println(err)
+			return color, err
+		}
+		color[l] = b[0]
+	}
+	return color, err
+}
+
 // Given a string try and convert it to a color
 // Strings like "blue", "red" "green" or
 // "#FFFE34" or "DEDEDE"
 func (l *RGBLED) QuickColor(s string) error {
 	var newcolor [3]byte
+	var err error
 	var ok bool
 	if newcolor, ok = Colors[s]; ok {
+		l.Color(newcolor)
+		return nil
+	}
+	if newcolor, err = FromHex(s); err == nil {
 		l.Color(newcolor)
 		return nil
 	}
