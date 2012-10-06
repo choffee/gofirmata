@@ -100,8 +100,8 @@ type Board struct {
 	Debug           int // 0 no debug
 	baud            int
 	serial          io.ReadWriteCloser
-	Reader          *chan FirmataMsg
-	Writer          *chan FirmataMsg
+	Reader          chan FirmataMsg
+	Writer          chan FirmataMsg
 	digitalPins     [8]byte  // Keeps a record of digital pin values
 	analogPins      [16]byte // Keeps a record of analog pin values
 	pinCapabilities []pinCapability
@@ -198,22 +198,30 @@ func toInt7(lsb, msb byte) int {
 	return int(lsb + (msb << 7))
 }
 
-func (board *Board) processMIDI(cmd, first byte) {
+func (board *Board) processMIDI(cmd, first byte) FirmataMsg {
+	var msg FirmataMsg
 	m := make([]byte, 2)
 	var err error
 	_, err = board.serial.Read(m)
 	if err != nil {
 		log.Fatal("Failed to read the rest of the MIDI message")
 	}
+	msg.msgtype = cmd
 	switch cmd {
 	case ANALOG_MESSAGE:
 		pin := first & 0x0F
+		msg.pin = pin
 		value := m[0] | m[1]<<7
+		msg.data = map[string]string{"value": fmt.Sprintf("%x", value)}
 		board.analogPins[pin] = value
 	case PROTOCOL_VER:
 		board.version = map[string]byte{"major": m[0], "minor": m[1]}
+		msg.data = map[string]string{
+			"major_ver": fmt.Sprintf("%x", m[0]),
+			"minor_ver": fmt.Sprintf("%x", m[1]),
+		}
 	}
-
+	return msg
 }
 
 // Show the board version
@@ -225,7 +233,7 @@ func (board *Board) Version() map[string]byte {
 // Sets up the reader channel
 // You can then fetch read events from  <- board.Reader
 func (board *Board) GetReader() {
-	board.Reader = new(chan FirmataMsg)
+	board.Reader = make(chan FirmataMsg)
 	// Sleep for a bit before we start to read
 	time.Sleep(1000 * time.Millisecond)
 	go func() {
@@ -253,7 +261,7 @@ func (board *Board) GetReader() {
 				if board.Debug > 9 {
 					log.Printf("Sysex Rec: %v", newmsg)
 				}
-				*board.Reader <- newmsg
+				board.Reader <- newmsg
 			default:
 				// Assume it's a MIDI command
 				m := make([]byte, 3)
@@ -272,7 +280,8 @@ func (board *Board) GetReader() {
 					if board.Debug > 9 {
 						log.Printf("Midi Rec: %v", cmd)
 					}
-					board.processMIDI(cmd, l[0])
+					newmsg := board.processMIDI(cmd, l[0])
+					board.Reader <- newmsg
 				}
 			}
 		}
