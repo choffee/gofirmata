@@ -24,9 +24,12 @@ func (e ColorError) Error() string {
 }
 
 // A type for holding some colors
+// You can set the color bytes
+// The invert bool is for LED's that are wired backwards.
 type RGBLED struct {
 	rpin, bpin, gpin uint8
 	Red, Green, Blue byte
+	Invert           bool
 }
 
 // Create a new RGB LED
@@ -98,7 +101,13 @@ func (l *RGBLED) QuickColor(s string) error {
 // Send the current color of this led to the board
 func (l *RGBLED) SendColor(b *Board) {
 	l.SetupPins(b)
-	b.WriteAnalog(l.rpin, l.Red)
-	b.WriteAnalog(l.gpin, l.Green)
-	b.WriteAnalog(l.bpin, l.Blue)
+	var red, green, blue byte
+	if l.Invert {
+		red, green, blue = 255-l.Red, 255-l.Green, 255-l.Blue
+	} else {
+		red, green, blue = l.Red, l.Green, l.Blue
+	}
+	b.WriteAnalog(l.rpin, red)
+	b.WriteAnalog(l.gpin, green)
+	b.WriteAnalog(l.bpin, blue)
 }
