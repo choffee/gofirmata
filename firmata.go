@@ -74,6 +74,7 @@ const (
 	DIGITAL_READ  byte = 0xD0
 	ANALOG_WRITE  byte = 0xE0
 	ANALOG_READ   byte = 0xC0
+	PROTOCOL_VER  byte = 0xF9
 )
 
 type FirmataMsg struct {
@@ -105,6 +106,7 @@ type Board struct {
 	analogPins      [16]byte // Keeps a record of analog pin values
 	pinCapabilities []pinCapability
 	analogMappings  []byte // one for each pin showing mapped analog pin
+	version         map[string]byte
 }
 
 // Setup the board to start reading and writing
@@ -208,8 +210,16 @@ func (board *Board) processMIDI(cmd, first byte) {
 		pin := first & 0x0F
 		value := m[0] | m[1]<<7
 		board.analogPins[pin] = value
+	case PROTOCOL_VER:
+		board.version = map[string]byte{"major": m[0], "minor": m[1]}
 	}
 
+}
+
+// Show the board version
+func (board *Board) Version() map[string]byte {
+	version := board.version
+	return version
 }
 
 // Sets up the reader channel
@@ -240,6 +250,9 @@ func (board *Board) GetReader() {
 				}
 				// Send the message down the chanel
 				newmsg := board.process_sysex(msgdata)
+				if board.Debug > 9 {
+					log.Printf("Sysex Rec: %v", newmsg)
+				}
 				*board.Reader <- newmsg
 			default:
 				// Assume it's a MIDI command
@@ -255,6 +268,9 @@ func (board *Board) GetReader() {
 						cmd = l[0] & 0xF0
 					} else {
 						cmd = l[0]
+					}
+					if board.Debug > 9 {
+						log.Printf("Midi Rec: %v", cmd)
 					}
 					board.processMIDI(cmd, l[0])
 				}
