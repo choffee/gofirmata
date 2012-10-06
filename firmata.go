@@ -278,6 +278,9 @@ func (board *Board) sendSysex(msg []byte) {
 
 func (board *Board) sendRaw(msg *[]byte) {
 	board.serial.Write(*msg)
+	if board.Debug > 9 {
+		log.Printf("RawMsg: %v\n", &msg)
+	}
 }
 
 func (board *Board) GetAnalogMapping() {
@@ -328,6 +331,7 @@ func (board *Board) WriteAnalog(pin, value byte) {
 	cmd := byte(ANALOG_WRITE | pin)
 	msg := []byte{cmd, value & 0x7F, (value >> 7) & 0x7F}
 	board.sendRaw(&msg)
+	log.Printf("%v, %v", board.analogPins, pin)
 	board.analogPins[pin] = value
 }
 
