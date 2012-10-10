@@ -36,6 +36,15 @@ type display struct {
 	settings    settings
 }
 
+// An error if we get a bad color
+type BadLocationError struct {
+	Desc string
+}
+
+func (e BadLocationError) Error() string {
+	return e.Desc
+}
+
 // Get the settings for a board
 func (d *display) getSettings(b string) bool {
 	var m map[string]byte
@@ -108,12 +117,26 @@ func (disp *display) Clear() {
 }
 
 // Move the cursor to a location
-func (disp *display) MoveTo(r, c byte) {
+func (disp *display) MoveTo(r, c byte) error {
 	if (r < disp.height) && (c < disp.width) {
 		msg := []byte{disp.messages["MOVE"], c, r}
 		disp.send(msg)
 		disp.cursorR = r
 		disp.cursorC = c
+	} else {
+		return BadLocationError{fmt.Sprintf("row: %d, col: %d, is outside %d, %d", r, c, disp.height, disp.width)}
+	}
+}
+
+func (disp *display) GetText(r, c, length) (string, error) {
+	if (r < disp.height) && (c+length < disp.width) {
+		var text string
+		for l := c; l < length; l++ {
+			text = text + string(disp.Content[r][l])
+		}
+		return text, nil
+	} else {
+		return nil, BadLocationError{fmt.Sprintf("row: %d, col: %d, is outside %d, %d", r, c, disp.height, disp.width)}
 	}
 }
 
