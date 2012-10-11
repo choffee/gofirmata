@@ -4,7 +4,6 @@ package firmata
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"math/rand"
 	"time"
 )
@@ -24,8 +23,8 @@ type settings struct {
 // Display
 type display struct {
 	board       *Board
-	displaytype string
-	comms       byte
+	displayType string
+	comms       string
 	i2CAddr     byte
 	width       byte
 	height      byte
@@ -49,7 +48,7 @@ func (e BadLocationError) Error() string {
 func (d *display) getSettings(b string) bool {
 	var m map[string]byte
 	var s settings
-	found := flase
+	found := false
 	switch b {
 	case "LED03":
 		s.name = "LED03"
@@ -69,7 +68,7 @@ func (d *display) getSettings(b string) bool {
 // Requires the address of the display that you  want to use
 func NewI2CDisplay(board *Board, addr byte, dispType string) display {
 	disp := newDisplay(dispType)
-	disp.comms = COMMS_I2C
+	disp.comms = "I2C"
 	disp.i2CAddr = addr
 	return disp
 }
@@ -100,13 +99,13 @@ func (disp *display) send(msg []byte) {
 		newmsg[l+1] = v
 	}
 	switch disp.comms {
-	case COMMS_I2C:
+	case "I2C":
 		disp.board.I2CWrite(disp.i2CAddr, I2C_MODE_WRITE, newmsg)
 	}
 }
 
 func (disp *display) Clear() {
-	msg := disp.messages["CLEAR"]
+	msg := []byte{disp.messages["CLEAR"]}
 	disp.send(msg)
 	for rk, _ := range disp.Content {
 		for ck, _ := range disp.Content[rk] {
@@ -128,7 +127,7 @@ func (disp *display) MoveTo(r, c byte) error {
 	}
 }
 
-func (disp *display) GetText(r, c, length) (string, error) {
+func (disp *display) GetText(r, c, length byte) (string, error) {
 	if (r < disp.height) && (c+length < disp.width) {
 		var text string
 		for l := c; l < length; l++ {
@@ -136,7 +135,7 @@ func (disp *display) GetText(r, c, length) (string, error) {
 		}
 		return text, nil
 	} else {
-		return nil, BadLocationError{fmt.Sprintf("row: %d, col: %d, is outside %d, %d", r, c, disp.height, disp.width)}
+		return "", BadLocationError{fmt.Sprintf("row: %d, col: %d, is outside %d, %d", r, c, disp.height, disp.width)}
 	}
 }
 
@@ -144,7 +143,7 @@ func (disp *display) GetText(r, c, length) (string, error) {
 func (disp *display) UpdateScreen(newscreen [][]byte) {
 	// For now just do it via brute force
 	for rk, _ := range newscreen {
-		disp.putText(string(newscreen[rk]), byte(rk), 0)
+		disp.PutText(string(newscreen[rk]), byte(rk), 0)
 	}
 }
 
