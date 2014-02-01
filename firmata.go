@@ -69,7 +69,7 @@ const (
 	I2C_REQUEST             byte = 0x76
 	I2C_REPLY               byte = 0x77
 	I2C_CONFIG              byte = 0x78
-	SAMPLINT_INTERVAL       byte = 0x7A
+	SAMPLING_INTERVAL       byte = 0x7A
 
 	DIGITAL_WRITE byte = 0x90
 	DIGITAL_READ  byte = 0xD0
@@ -386,7 +386,7 @@ func (board *Board) I2CConfig(delay int) {
 func (board *Board) SetSamplingInterval(interval int) {
 	msb := byte((interval << 1) >> 8 & 0x7F)
 	lsb := byte(interval & 0x7F)
-	msg := []byte{SAMPLINT_INTERVAL, lsb, msb}
+	msg := []byte{SAMPLING_INTERVAL, lsb, msb}
 	board.sendSysex(msg)
 }
 
