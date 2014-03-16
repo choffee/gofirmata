@@ -69,6 +69,7 @@ const (
 	I2C_REQUEST             byte = 0x76
 	I2C_REPLY               byte = 0x77
 	I2C_CONFIG              byte = 0x78
+	SAMPLING_INTERVAL       byte = 0x7A
 
 	DIGITAL_WRITE byte = 0x90
 	DIGITAL_READ  byte = 0xD0
@@ -263,26 +264,17 @@ func (board *Board) GetReader() {
 				}
 				board.Reader <- newmsg
 			default:
-				// Assume it's a MIDI command
-				m := make([]byte, 3)
-				var merr error
-				_, merr = board.serial.Read(m)
-				if merr != nil {
-					// We fail for now
-					log.Fatal("Failed to read MIDI_MSG")
+				var cmd byte
+				if l[0] < 240 {
+					cmd = l[0] & 0xF0
 				} else {
-					var cmd byte
-					if l[0] < 240 {
-						cmd = l[0] & 0xF0
-					} else {
-						cmd = l[0]
-					}
-					if board.Debug > 9 {
-						log.Printf("Midi Rec: %v", cmd)
-					}
-					newmsg := board.processMIDI(cmd, l[0])
-					board.Reader <- newmsg
+					cmd = l[0]
 				}
+				if board.Debug > 9 {
+					log.Printf("Midi Rec: %v", cmd)
+				}
+				newmsg := board.processMIDI(cmd, l[0])
+				board.Reader <- newmsg
 			}
 		}
 	}()
@@ -293,7 +285,7 @@ func (board *Board) GetReader() {
 func (board *Board) sendSysex(msg []byte) {
 	sysex := make([]byte, len(msg)+2)
 	sysex[0] = START_SYSEX
-	copy(sysex[1:len(msg)], msg)
+	copy(sysex[1:], msg)
 	sysex[len(msg)+1] = END_SYSEX
 	board.sendRaw(&sysex)
 	if board.Debug > 0 {
@@ -386,6 +378,15 @@ func (board *Board) I2CConfig(delay int) {
 	msg[1] = byte(1) // Power pins on
 	msg[1] = byte(delay & 0x7F)
 	msg[2] = byte((delay >> 7) & 0x7F)
+	board.sendSysex(msg)
+}
+
+// Send analog report interval command
+// interval (millisecond)
+func (board *Board) SetSamplingInterval(interval int) {
+	msb := byte((interval << 1) >> 8 & 0x7F)
+	lsb := byte(interval & 0x7F)
+	msg := []byte{SAMPLING_INTERVAL, lsb, msb}
 	board.sendSysex(msg)
 }
 
